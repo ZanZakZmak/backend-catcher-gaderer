@@ -1,0 +1,4 @@
+//spremiti ovo u "babel.config.json" datoteku - pripazi da datoteka počinje stočkom!
+{
+"presets": ["@babel/preset-env"]
+}
