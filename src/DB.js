@@ -4,9 +4,31 @@ let uri =
   "mongodb+srv://zmak:1234@clustercatchergaderer.7nbp3nd.mongodb.net/?retryWrites=true&w=majority";
 
 const client = new MongoClient(uri);
-console.log("kljent", client);
-let x = 2;
+//console.log("kljent", client);
 
+//tonkec solution ovo trba ispraviti
+/*
+import { MongoClient } from "mongodb";
+const connectionString =
+  "mongodb+srv://zmak:1234@clustercatchergaderer.7nbp3nd.mongodb.net/?retryWrites=true&w=majority";
+const client = new MongoClient(connectionString);
+let conn = null;
+try {
+  console.log("Trying to establish connection...");
+  conn = async () => {
+    await client.connect();
+  };
+
+  console.log(conn);
+} catch (e) {
+  console.error(e);
+}
+console.log("kljent:", conn);
+//let db = conn.db("CatcherGaderer");
+let db = client.db("CatcherGaderer");
+export default db;
+*/
+/*
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -22,7 +44,7 @@ async function run() {
     await client.close();
   }
 }
-run().catch(console.dir);
+run().catch(console.dir);*/
 //let db = client.db("")
 //prof
 /*
@@ -69,24 +91,39 @@ async function run() {
 }
 run().catch(console.dir);
 */
-
+//console.log("message1",)
 let db = null;
 // eksportamo Promise koji resolva na konekciju
 export default () => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     // ako smo inicijalizirali bazu i klijent je još uvijek spojen
-    if (db && client.isConnected()) {
+    //&& client.isConnected()
+    //console.log("message1 :");
+    if (db) {
+      console.log("jos uvjek povezan sa db");
       resolve(db);
     } else {
-      client.connect((err) => {
+      //console.log("message3");
+      try {
+        await client.connect();
+        console.log("Connected to MongoDB Atlas");
+        db = client.db("CatcherGaderer");
+        resolve(db);
+      } catch (err) {
+        console.error("Error connecting to MongoDB Atlas:", err);
+        reject("Spajanje na bazu nije uspjelo:" + err);
+      }
+      /*await client.connect((err) => {
         if (err) {
+          console.log("message4");
           reject("Spajanje na bazu nije uspjelo:" + err);
         } else {
+          console.log("message5");
           console.log("Database connected successfully!");
           db = client.db("CatcherGaderer");
           resolve(db);
         }
-      });
+      });*/
     }
   });
 };
