@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config(); // učitava environment varijable iz datoteke .env
 import express from "express";
 import routes from "./routes"; // . označava da tražimo modul u istom direktoriju gdje se nalazi ovaj modul
 import cors from "cors";
@@ -5,6 +7,8 @@ import storage from "./memoryData";
 import connect from "./DB";
 import * as dataHandlers from "./handlers/dataHandlers.js";
 import { ObjectId } from "mongodb";
+import mongo from "mongodb";
+import auth from "./auth.js";
 
 //import db from "./DB";
 
@@ -26,11 +30,40 @@ app.post("/posts", (req, res) => {
   console.log(data);
   res.json(data); // vrati podatke za referencu
 });
+//auth rute #
+//register user
+app.post("/user", async (req, res) => {
+  var userInfo = req.body;
+  let id;
+  try {
+    id = await auth.registerUser(userInfo);
+    res.status(200).json(id);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+//log-in user
+app.post("/auth", async (req, res) => {
+  let userInfo = req.body;
 
+  try {
+    let result = await auth.authenticateUser(userInfo.email, userInfo.password);
+    console.log(result);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(401).json({ error: error.message });
+  }
+});
+//example of middleweare
+app.get("/testmid", [auth.verify], (req, res) => {
+  console.log("ovo je iz req jwt", req.jwt);
+  res.status(200).json({ message: "ovo je tajna" });
+});
 // dodavanje rute u aplikaciju
 app.get("/studenti", dataHandlers.studentHandler);
 //testovi
-app.get("/tesiranjeMongoTAN", async (req, res) => {
+app.get("/tesiranjeMongoTAN", [auth.verify], async (req, res) => {
   //let results = { kako: "ono" };
   try {
     let db = await connect(); // pristup db objektu
@@ -41,7 +74,7 @@ app.get("/tesiranjeMongoTAN", async (req, res) => {
     res.status(500).json({ errors: error });
   }
 });
-app.post("/tesiranjeMongoTAN", async (req, res) => {
+app.post("/tesiranjeMongoTAN", [auth.verify], async (req, res) => {
   let body = req.body;
   if (Object.keys(body).length != 0) {
     let db = await connect(); // pristup db objektu
@@ -52,7 +85,7 @@ app.post("/tesiranjeMongoTAN", async (req, res) => {
     res.sendStatus(400);
   }
 });
-app.patch("/tesiranjeMongoTAN", async (req, res) => {
+app.patch("/tesiranjeMongoTAN", [auth.verify], async (req, res) => {
   //id=req.params.id
   let db = await connect(); // pristup db objektu
   let Collection = await db.collection("test1");
@@ -64,7 +97,7 @@ app.patch("/tesiranjeMongoTAN", async (req, res) => {
   );
   res.sendStatus(200);
 });
-app.delete("/tesiranjeMongoTAN/:id", async (req, res) => {
+app.delete("/tesiranjeMongoTAN/:id", [auth.verify], async (req, res) => {
   let id = req.params.id;
   try {
     let db = await connect(); // pristup db objektu
