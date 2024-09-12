@@ -20,7 +20,7 @@ app.use(cors()); // omogući CORS na svim rutama
 app.get("/", routes.home);
 app.get("/data", dataHandlers.getingData);
 //zbog front
-app.post("/posts", (req, res) => {
+/*app.post("/posts", (req, res) => {
   let data = req.body;
   // ovo inače radi baza (autoincrement ili sl.), ali čisto za primjer
   data.id = 1 + storage.posts.reduce((max, el) => Math.max(el.id, max), 0);
@@ -29,7 +29,8 @@ app.post("/posts", (req, res) => {
   // vrati ono što je spremljeno
   console.log(data);
   res.json(data); // vrati podatke za referencu
-});
+});*/
+
 //auth rute #
 //register user
 app.post("/user", async (req, res) => {
@@ -60,9 +61,498 @@ app.get("/testmid", [auth.verify], (req, res) => {
   console.log("ovo je iz req jwt", req.jwt);
   res.status(200).json({ message: "ovo je tajna" });
 });
+
+//social posts
+//sa js filteranje
+/*app.get("/posts", async (req, res) => {
+  let query = req.query;
+  console.log("da vidimo querry:", query);
+  //with mongo querry object
+  let filter;
+  try {
+    let db = await connect(); // pristup db objektu
+    let cursor = await db.collection("posts").find();
+    let results = await cursor.toArray();
+    console.log("testic", results);
+    //filter with javascript
+    if (query.search && !(query.search === "") && query.search != "null") {
+      results = results.filter((element) => {
+        return !(
+          element.title.toLowerCase().search(query.search.toLowerCase()) === -1
+        );
+      });
+    }
+    if (
+      query.categoryFilter &&
+      query.categoryFilter != "" &&
+      query.categoryFilter != "null"
+    ) {
+      let category = query.categoryFilter.split(",");
+      console.log("ovo je moj querry :", category);
+      function checkCategory(dbCat, searchCat) {
+        let result = false;
+        for (let i = 0; i < searchCat.length; i++) {
+          if (dbCat.includes(searchCat[i].toLowerCase())) {
+            result = true;
+          }
+        }
+        return result;
+      }
+      results = results.filter((element) => {
+        return checkCategory(element.category, category);
+      });
+    }
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({ errors: error });
+  }
+});*/
+app.get("/posts", async (req, res) => {
+  let query = req.query;
+  console.log("state iner:", query);
+  try {
+    let filtersExample = {
+      //and on wat things
+      $and: [
+        { title: new RegExp("ulov") },
+        // category filter
+        { category: { $all: ["herb", "fungi"] } },
+        //area filter
+        { area: new RegExp("pula") },
+      ],
+    };
+    let filters = {};
+
+    if (
+      (query.search && !(query.search === "")) ||
+      (query.categoryFilter &&
+        query.categoryFilter != "" &&
+        query.categoryFilter != "null") ||
+      (query.areaFilter &&
+        !(query.areaFilter === "") &&
+        query.areaFilter != "null")
+    ) {
+      filters.$and = [];
+    }
+    //search term
+    if (query.search && !(query.search === "")) {
+      filters.$and.push({
+        $or: [
+          { title: new RegExp(query.search, "i") },
+          { createdBy: new RegExp(query.search, "i") },
+        ],
+      });
+    }
+    //category filter
+    if (
+      query.categoryFilter &&
+      query.categoryFilter != "" &&
+      query.categoryFilter != "null"
+    ) {
+      let category = query.categoryFilter.split(",");
+
+      filters.$and.push({ category: { $all: [...category] } });
+    }
+
+    //area filter
+    if (
+      query.areaFilter &&
+      !(query.areaFilter === "") &&
+      query.areaFilter != "null"
+    ) {
+      filters.$and.push({ area: new RegExp(query.areaFilter, "i") });
+    }
+
+    let db = await connect(); // pristup db objektu
+    let cursor = await db
+      .collection("posts")
+      .find(filters)
+      .sort({ createdTime: 1 }); //.sort( { postedAt: 1 })
+    let results = await cursor.toArray();
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({ errors: error });
+  }
+});
+/*app.get("/s-posts", (req, res) => {
+  res.status(200).json({ message: "ovo je tajna" });
+});*/
+
+app.get("/tesiranjePosts", (req, res) => {
+  let posts = [
+    {
+      title: "narnia",
+      imgUrl: "",
+      text: "",
+      createdBy: "",
+      createdByID: "",
+      date: "",
+      type: ["fish", "herb", "fungi"],
+      comments: [1, 2, 3, 4],
+    },
+    {
+      title: "got",
+      imgUrl: "",
+      text: "",
+      createdBy: "",
+      createdByID: "",
+      date: "",
+      type: ["herb", "fungi"],
+      comments: [1, 2, 3, 4],
+    },
+    {
+      title: "lotr",
+      imgUrl: "",
+      text: "",
+      createdBy: "",
+      createdByID: "",
+      date: "",
+      type: ["fish"],
+      comments: [1, 2, 3, 4],
+    },
+  ];
+
+  //filtriranje ovdje primamo querry sa front i vracamo filtrirano sa back stranom
+  let query = req.query;
+  console.log("ovo je moj querry :", query);
+  console.log("ovo je moj querry :", typeof query.key3);
+
+  if (query.search && !(query.search === "")) {
+    posts = posts.filter((element) => {
+      return !(
+        element.title.toLowerCase().search(query.search.toLowerCase()) === -1
+      );
+    });
+  }
+
+  if (query.key2) {
+    let category = query.key2.split(",");
+    console.log("ovo je moj querry :", category);
+    function checkCategory(dbCat, searchCat) {
+      let result = false;
+      for (let i = 0; i < searchCat.length; i++) {
+        if (dbCat.includes(searchCat[i].toLowerCase())) {
+          result = true;
+        }
+      }
+      return result;
+    }
+    posts = posts.filter((element) => {
+      return checkCategory(element.type, category);
+    });
+  }
+  /*else {
+    res.status(200).json(posts);
+    return;
+  }*/
+
+  console.log("tetiranje", posts);
+
+  res.status(200).json(posts);
+});
+app.post("/posts", async (req, res) => {
+  var postData = req.body;
+  let db = await connect(); // pristup db objektu
+  let doc = {
+    title: postData.title,
+    text: postData.text,
+    imgUrl: postData.imgUrl,
+    createdBy: postData.createdBy,
+    createdById: postData.createdById,
+    createdTime: postData.createdTime,
+    area: postData.area,
+    category: [...postData.category],
+    comments: postData.comments,
+  };
+
+  try {
+    let result = await db.collection("posts").insertOne(doc);
+    let id;
+    if (result && result.insertedId) {
+      id = result.insertedId;
+    }
+    res.status(200).json(id);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+//single socialpost
+app.get("/post/:id", async (req, res) => {
+  let id = req.params.id;
+
+  try {
+    let db = await connect(); // pristup db objektu
+    let results = await db
+      .collection("posts")
+      .findOne({ _id: new ObjectId(id) });
+
+    //dodati funkciju za komentare ucitat preko ID-eva i mapirati u novi objekt ili maanualno pošto je jedan
+    let cursor = await db
+      .collection("comments")
+      .find({ postId: id }) //new ObjectId(id)
+      .sort({ createdTime: 1 }); //.sort( { postedAt: 1 })
+    let commentArr = await cursor.toArray();
+    //prebaciti cu u id samo da ne bude _
+    commentArr.forEach((element) => {
+      element.id = element._id;
+      delete element._id;
+    });
+    //zamjenjujem u arrayu
+    results.comments = commentArr;
+
+    //console.log("results :", results);
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({ errors: error });
+  }
+});
+app.delete("/post/:id", (req, res) => {
+  res.status(200).json({});
+});
+//comments
+/*
+app.get("/post/:postid/comments", async (req, res) => {
+  let id = req.params.postid;
+  try {
+    let db = await connect(); // pristup db objektu
+    let cursor = await db
+      .collection("comments")
+      .find({ postId: id }) //new ObjectId(id)
+      .sort({ createdTime: 1 }); //.sort( { postedAt: 1 })
+    let results = await cursor.toArray();
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({ errors: error });
+  }
+});*/
+app.post("/post/:postid/comment", async (req, res) => {
+  let id = req.params.postid;
+  var postData = req.body;
+  let doc = {
+    text: postData.text,
+    createdBy: postData.createdBy,
+    createdById: postData.createdById,
+    createdTime: postData.createdTime,
+    postId: postData.postId,
+  };
+  let db = await connect();
+
+  try {
+    //add comment
+    let result = await db.collection("comments").insertOne(doc);
+    let comId;
+    if (result && result.insertedId) {
+      comId = result.insertedId;
+    }
+    //update post
+    let resultUpdate = await db.collection("posts").updateOne(
+      { _id: new ObjectId(id) },
+
+      { $push: { comments: comId } }
+    );
+
+    res.status(200).json(comId);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+app.delete("/post/:postid/comments/:comid", async (req, res) => {
+  let postId = req.params.postid;
+  let commentId = req.params.comid;
+
+  try {
+    let db = await connect(); // pristup db objektu
+    //remove from post
+    let resultUpdate = await db.collection("posts").updateOne(
+      { _id: new ObjectId(postId) },
+
+      { $pull: { comments: { _id: new ObjectId(commentId) } } }
+    );
+    //remove comment
+    await db.collection("comments").deleteOne({ _id: new ObjectId(commentId) });
+
+    res.sendStatus(200);
+  } catch (error) {
+    res.status(500).json({ errors: error });
+  }
+});
+//info posts
+//encyclopedia
+app.get("/encyclopedia", async (req, res) => {
+  let query = req.query;
+  console.log("state iner:", query);
+  try {
+    let filtersExample = {
+      //and on wat things
+      $and: [
+        { title: new RegExp("ulov") },
+        // category filter
+        { category: { $all: ["herb", "fungi"] } },
+        //area filter
+        { area: new RegExp("pula") },
+      ],
+    };
+    let filters = {};
+
+    if (
+      (query.search && !(query.search === "")) ||
+      (query.categoryFilter &&
+        query.categoryFilter != "" &&
+        query.categoryFilter != "null") ||
+      (query.areaFilter &&
+        !(query.areaFilter === "") &&
+        query.areaFilter != "null")
+    ) {
+      filters.$and = [];
+    }
+    //search term
+    if (query.search && !(query.search === "")) {
+      filters.$and.push({
+        $or: [
+          { title: new RegExp(query.search, "i") },
+          { createdBy: new RegExp(query.search, "i") },
+        ],
+      });
+    }
+    //category filter
+    if (
+      query.categoryFilter &&
+      query.categoryFilter != "" &&
+      query.categoryFilter != "null"
+    ) {
+      let category = query.categoryFilter.split(",");
+
+      filters.$and.push({ category: { $all: [...category] } });
+    }
+
+    //area filter
+    if (
+      query.areaFilter &&
+      !(query.areaFilter === "") &&
+      query.areaFilter != "null"
+    ) {
+      filters.$and.push({ area: new RegExp(query.areaFilter, "i") });
+    }
+
+    let db = await connect(); // pristup db objektu
+    let cursor = await db.collection("encyclopedia").find();
+    //.sort({ createdTime: 1 }); //.sort( { postedAt: 1 })
+    let results = await cursor.toArray();
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({ errors: error });
+  }
+});
+
+app.post("/encyclopedia", async (req, res) => {
+  var postData = req.body;
+
+  let doc = {
+    name: postData.name,
+    nameLat: postData.nameLat,
+    namesAlt: postData.namesAlt,
+    imgUrl: postData.imgUrl,
+    poison: postData.poison,
+    category: postData.category,
+    description: postData.description,
+  };
+
+  try {
+    let db = await connect(); // pristup db objektu
+    let result = await db.collection("encyclopedia").insertOne(doc);
+    let id;
+    if (result && result.insertedId) {
+      id = result.insertedId;
+    }
+    res.status(200).json(id);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+//single encyclopedia
+app.get("/encyclopedia/:id", async (req, res) => {
+  let id = req.params.id;
+
+  try {
+    let db = await connect(); // pristup db objektu
+    let results = await db
+      .collection("encyclopedia")
+      .findOne({ _id: new ObjectId(id) });
+
+    //console.log("results :", results);
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({ errors: error });
+  }
+});
+//profile
 // dodavanje rute u aplikaciju
 app.get("/studenti", dataHandlers.studentHandler);
 //testovi
+app.get("/testQuery", async (req, res) => {
+  let query = req.query;
+  console.log("state iner:", query);
+  try {
+    let filtersExample = {
+      //and on wat things
+      $and: [
+        { title: new RegExp("ulov") },
+        // category filter
+        { category: { $all: ["herb", "fungi"] } },
+        //area filter
+        { area: new RegExp("pula") },
+      ],
+    };
+    let filters = {};
+
+    if (
+      (query.search && !(query.search === "")) ||
+      (query.categoryFilter &&
+        query.categoryFilter != "" &&
+        query.categoryFilter != "null") ||
+      (query.areaFilter &&
+        !(query.areaFilter === "") &&
+        query.areaFilter != "null")
+    ) {
+      filters.$and = [];
+    }
+    //search term
+    if (query.search && !(query.search === "")) {
+      filters.$and.push({
+        $or: [
+          { title: new RegExp(query.search, "i") },
+          { createdBy: new RegExp(query.search, "i") },
+        ],
+      });
+    }
+    //category filter
+    if (
+      query.categoryFilter &&
+      query.categoryFilter != "" &&
+      query.categoryFilter != "null"
+    ) {
+      let category = query.categoryFilter.split(",");
+
+      filters.$and.push({ category: { $all: [...category] } });
+    }
+
+    //area filter
+    if (
+      query.areaFilter &&
+      !(query.areaFilter === "") &&
+      query.areaFilter != "null"
+    ) {
+      filters.$and.push({ area: new RegExp(query.areaFilter, "i") });
+    }
+
+    let db = await connect(); // pristup db objektu
+    let cursor = await db.collection("posts").find(filters);
+    let results = await cursor.toArray();
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({ errors: error });
+  }
+});
 app.get("/tesiranjeMongoTAN", [auth.verify], async (req, res) => {
   //let results = { kako: "ono" };
   try {

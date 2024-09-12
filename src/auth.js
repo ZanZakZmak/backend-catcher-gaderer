@@ -2,6 +2,7 @@ import connect from "./DB";
 import mongo from "mongodb";
 import bcrypt from "bcrypt";
 import jwt, { verify } from "jsonwebtoken";
+//kreiranje indexa da email mora bit uniqe sa pozivom te funkcije putem ()
 (async () => {
   let db = await connect();
   await db.collection("users").createIndex({ email: 1 }, { unique: true });
@@ -47,7 +48,12 @@ export default {
         expiresIn: "1 week",
       });
       console.log(user);
-      return { token };
+      return {
+        token,
+        id: user._id,
+        email: user.email,
+        username: user.username,
+      };
     } else {
       throw new Error("cannot authenticate");
     }
