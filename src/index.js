@@ -140,6 +140,7 @@ app.get("/posts", async (req, res) => {
         $or: [
           { title: new RegExp(query.search, "i") },
           { createdBy: new RegExp(query.search, "i") },
+          { text: new RegExp(query.search, "i") },
         ],
       });
     }
@@ -385,11 +386,17 @@ app.get("/encyclopedia", async (req, res) => {
     let filtersExample = {
       //and on wat things
       $and: [
-        { title: new RegExp("ulov") },
+        {
+          $or: [
+            { name: new RegExp("ulov", "i") },
+            { nameLat: new RegExp("ulov", "i") },
+            { namesAlt: new RegExp("ulov", "i") },
+          ],
+        },
         // category filter
         { category: { $all: ["herb", "fungi"] } },
         //area filter
-        { area: new RegExp("pula") },
+        { poisonous: new RegExp("pula", "i") },
       ],
     };
     let filters = {};
@@ -399,9 +406,9 @@ app.get("/encyclopedia", async (req, res) => {
       (query.categoryFilter &&
         query.categoryFilter != "" &&
         query.categoryFilter != "null") ||
-      (query.areaFilter &&
-        !(query.areaFilter === "") &&
-        query.areaFilter != "null")
+      (query.poisonousFilter &&
+        !(query.poisonousFilter === "") &&
+        query.poisonousFilter != "null")
     ) {
       filters.$and = [];
     }
@@ -409,8 +416,9 @@ app.get("/encyclopedia", async (req, res) => {
     if (query.search && !(query.search === "")) {
       filters.$and.push({
         $or: [
-          { title: new RegExp(query.search, "i") },
-          { createdBy: new RegExp(query.search, "i") },
+          { name: new RegExp(query.search, "i") },
+          { nameLat: new RegExp(query.search, "i") },
+          { namesAlt: new RegExp(query.search, "i") },
         ],
       });
     }
@@ -421,21 +429,26 @@ app.get("/encyclopedia", async (req, res) => {
       query.categoryFilter != "null"
     ) {
       let category = query.categoryFilter.split(",");
+      let or = [];
 
-      filters.$and.push({ category: { $all: [...category] } });
+      category.forEach((element) => {
+        or.push({ category: new RegExp(element, "i") });
+      });
+
+      filters.$and.push({ $or: or });
     }
 
     //area filter
     if (
-      query.areaFilter &&
-      !(query.areaFilter === "") &&
-      query.areaFilter != "null"
+      query.poisonousFilter &&
+      !(query.poisonousFilter === "") &&
+      query.poisonousFilter != "null"
     ) {
-      filters.$and.push({ area: new RegExp(query.areaFilter, "i") });
+      filters.$and.push({ poison: new RegExp(query.poisonousFilter, "i") });
     }
 
     let db = await connect(); // pristup db objektu
-    let cursor = await db.collection("encyclopedia").find();
+    let cursor = await db.collection("encyclopedia").find(filters);
     //.sort({ createdTime: 1 }); //.sort( { postedAt: 1 })
     let results = await cursor.toArray();
     res.status(200).json(results);
