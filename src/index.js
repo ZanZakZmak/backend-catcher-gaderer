@@ -107,13 +107,18 @@ app.get("/testmid", [auth.verify], (req, res) => {
     res.status(500).json({ errors: error });
   }
 });*/
-app.get("/posts", async (req, res) => {
+app.get("/posts/:type", async (req, res) => {
+  // nepostojeći querry je samo undefined
   let query = req.query;
+  let pharams = req.params;
+  console.log("exsperiment", pharams.type);
   console.log("state iner:", query);
   try {
     let filtersExample = {
       //and on wat things
       $and: [
+        { type: new RegExp("social") },
+        //search
         { title: new RegExp("ulov") },
         // category filter
         { category: { $all: ["herb", "fungi"] } },
@@ -121,9 +126,11 @@ app.get("/posts", async (req, res) => {
         { area: new RegExp("pula") },
       ],
     };
-    let filters = {};
+    let filters = {
+      $and: [{ type: new RegExp(pharams.type) }],
+    };
 
-    if (
+    /* if (
       (query.search && !(query.search === "")) ||
       (query.categoryFilter &&
         query.categoryFilter != "" &&
@@ -133,7 +140,7 @@ app.get("/posts", async (req, res) => {
         query.areaFilter != "null")
     ) {
       filters.$and = [];
-    }
+    }*/
     //search term
     if (query.search && !(query.search === "")) {
       filters.$and.push({
@@ -151,11 +158,12 @@ app.get("/posts", async (req, res) => {
       query.categoryFilter != "null"
     ) {
       let category = query.categoryFilter.split(",");
+      //poteciali change to find all that have only one of categorys
 
       filters.$and.push({ category: { $all: [...category] } });
     }
 
-    //area filter
+    //area filter for social
     if (
       query.areaFilter &&
       !(query.areaFilter === "") &&
@@ -163,12 +171,21 @@ app.get("/posts", async (req, res) => {
     ) {
       filters.$and.push({ area: new RegExp(query.areaFilter, "i") });
     }
+    //info type for info
+    //
+    if (
+      query.infoTypeFilter &&
+      !(query.infoTypeFilter === "") &&
+      query.infoTypeFilter != "null"
+    ) {
+      filters.$and.push({ infoType: new RegExp(query.infoTypeFilter, "i") });
+    }
 
     let db = await connect(); // pristup db objektu
     let cursor = await db
       .collection("posts")
       .find(filters)
-      .sort({ createdTime: 1 }); //.sort( { postedAt: 1 })
+      .sort({ createdTime: -1 }); //.sort( { postedAt: 1 })
     let results = await cursor.toArray();
     res.status(200).json(results);
   } catch (error) {
@@ -255,16 +272,24 @@ app.post("/posts", async (req, res) => {
   var postData = req.body;
   let db = await connect(); // pristup db objektu
   let doc = {
+    type: postData.type,
     title: postData.title,
     text: postData.text,
     imgUrl: postData.imgUrl,
     createdBy: postData.createdBy,
     createdById: postData.createdById,
     createdTime: postData.createdTime,
-    area: postData.area,
+    //area: postData.area,
+    //infoType: postData.infoType,
     category: [...postData.category],
     comments: postData.comments,
   };
+  if (postData.type == "social") {
+    doc.area = postData.area;
+  }
+  if (postData.type == "info") {
+    doc.infoType = postData.infoType;
+  }
 
   try {
     let result = await db.collection("posts").insertOne(doc);
@@ -278,6 +303,7 @@ app.post("/posts", async (req, res) => {
   }
 });
 //single socialpost
+//pazi vec pstoji get.posts sa pharams /: tako da ova ruta mora biti drugacija
 app.get("/post/:id", async (req, res) => {
   let id = req.params.id;
 
@@ -301,13 +327,13 @@ app.get("/post/:id", async (req, res) => {
     //zamjenjujem u arrayu
     results.comments = commentArr;
 
-    //console.log("results :", results);
+    console.log("results :", results);
     res.status(200).json(results);
   } catch (error) {
     res.status(500).json({ errors: error });
   }
 });
-app.delete("/post/:id", (req, res) => {
+app.delete("/posts/:id", (req, res) => {
   res.status(200).json({});
 });
 //comments
@@ -326,7 +352,7 @@ app.get("/post/:postid/comments", async (req, res) => {
     res.status(500).json({ errors: error });
   }
 });*/
-app.post("/post/:postid/comment", async (req, res) => {
+app.post("/posts/:postid/comments", async (req, res) => {
   let id = req.params.postid;
   var postData = req.body;
   let doc = {
@@ -357,7 +383,7 @@ app.post("/post/:postid/comment", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-app.delete("/post/:postid/comments/:comid", async (req, res) => {
+app.delete("/posts/:postid/comments/:comid", async (req, res) => {
   let postId = req.params.postid;
   let commentId = req.params.comid;
 
@@ -367,7 +393,7 @@ app.delete("/post/:postid/comments/:comid", async (req, res) => {
     let resultUpdate = await db.collection("posts").updateOne(
       { _id: new ObjectId(postId) },
 
-      { $pull: { comments: { _id: new ObjectId(commentId) } } }
+      { $pull: { comments:  new ObjectId(commentId)  } }
     );
     //remove comment
     await db.collection("comments").deleteOne({ _id: new ObjectId(commentId) });
