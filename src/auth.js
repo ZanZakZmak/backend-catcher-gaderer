@@ -1,5 +1,7 @@
 import connect from "./DB";
 import mongo from "mongodb";
+import { ObjectId } from "mongodb";
+
 import bcrypt from "bcrypt";
 import jwt, { verify } from "jsonwebtoken";
 //kreiranje indexa da email mora bit uniqe sa pozivom te funkcije putem ()
@@ -12,7 +14,7 @@ export default {
     let db = await connect(); // pristup db objektu
     //enkripcija
     let doc = {
-      username: user.name,
+      username: user.username,
       email: user.email,
       password: await bcrypt.hash(user.password, 8),
     };
@@ -56,6 +58,72 @@ export default {
       };
     } else {
       throw new Error("cannot authenticate");
+    }
+  },
+
+  async changeUserPassword(userId, oldPassword, newPassword) {
+    let db = await connect(); // pristup db objektu
+    let user = await db
+      .collection("users")
+      .findOne({ _id: new ObjectId(userId) });
+
+    if (
+      user &&
+      user.password &&
+      (await bcrypt.compare(oldPassword, user.password))
+    ) {
+      let newPassword_hashed = await bcrypt.hash(newPassword, 8);
+
+      let result = await db
+        .collection("users")
+        .updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { password: newPassword_hashed } }
+        );
+
+      return result.modifiedCount == 1;
+    }
+  },
+  async changeUserUsername(userId, newUsername, oldPassword) {
+    let db = await connect(); // pristup db objektu
+    let user = await db
+      .collection("users")
+      .findOne({ _id: new ObjectId(userId) });
+
+    if (
+      user &&
+      user.username &&
+      (await bcrypt.compare(oldPassword, user.password))
+    ) {
+      let result = await db
+        .collection("users")
+        .updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { username: newUsername } }
+        );
+
+      return result.modifiedCount == 1;
+    }
+  },
+  async changeUserEmail(userId, newEmail, oldPassword) {
+    let db = await connect(); // pristup db objektu
+    let user = await db
+      .collection("users")
+      .findOne({ _id: new ObjectId(userId) });
+
+    if (
+      user &&
+      user.email &&
+      (await bcrypt.compare(oldPassword, user.password))
+    ) {
+      let result = await db
+        .collection("users")
+        .updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { email: newEmail } }
+        );
+
+      return result.modifiedCount == 1;
     }
   },
   //middlewear

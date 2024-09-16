@@ -1,11 +1,10 @@
 import dotenv from "dotenv";
 dotenv.config(); // učitava environment varijable iz datoteke .env
 import express from "express";
-import routes from "./routes"; // . označava da tražimo modul u istom direktoriju gdje se nalazi ovaj modul
+
 import cors from "cors";
-import storage from "./memoryData";
 import connect from "./DB";
-import * as dataHandlers from "./handlers/dataHandlers.js";
+//import * as dataHandlers from "./handlers/dataHandlers.js";
 import { ObjectId } from "mongodb";
 import mongo from "mongodb";
 import auth from "./auth.js";
@@ -17,20 +16,6 @@ const port = 3000; // port na kojem će web server slušati
 app.use(express.json()); // automatski dekodiraj JSON poruke
 app.use(cors()); // omogući CORS na svim rutama
 
-app.get("/", routes.home);
-app.get("/data", dataHandlers.getingData);
-//zbog front
-/*app.post("/posts", (req, res) => {
-  let data = req.body;
-  // ovo inače radi baza (autoincrement ili sl.), ali čisto za primjer
-  data.id = 1 + storage.posts.reduce((max, el) => Math.max(el.id, max), 0);
-  // dodaj u našu bazu (lista u memoriji)
-  //storage.posts.push(data);
-  // vrati ono što je spremljeno
-  console.log(data);
-  res.json(data); // vrati podatke za referencu
-});*/
-
 //auth rute #
 //register user
 app.post("/user", async (req, res) => {
@@ -40,7 +25,7 @@ app.post("/user", async (req, res) => {
     id = await auth.registerUser(userInfo);
     res.status(200).json(id);
   } catch (error) {
-    console.log(error);
+    console.log(error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -57,10 +42,6 @@ app.post("/auth", async (req, res) => {
   }
 });
 //example of middleweare
-app.get("/testmid", [auth.verify], (req, res) => {
-  console.log("ovo je iz req jwt", req.jwt);
-  res.status(200).json({ message: "ovo je tajna" });
-});
 
 //social posts
 //sa js filteranje
@@ -192,82 +173,7 @@ app.get("/posts/:type", async (req, res) => {
     res.status(500).json({ errors: error });
   }
 });
-/*app.get("/s-posts", (req, res) => {
-  res.status(200).json({ message: "ovo je tajna" });
-});*/
 
-app.get("/tesiranjePosts", (req, res) => {
-  let posts = [
-    {
-      title: "narnia",
-      imgUrl: "",
-      text: "",
-      createdBy: "",
-      createdByID: "",
-      date: "",
-      type: ["fish", "herb", "fungi"],
-      comments: [1, 2, 3, 4],
-    },
-    {
-      title: "got",
-      imgUrl: "",
-      text: "",
-      createdBy: "",
-      createdByID: "",
-      date: "",
-      type: ["herb", "fungi"],
-      comments: [1, 2, 3, 4],
-    },
-    {
-      title: "lotr",
-      imgUrl: "",
-      text: "",
-      createdBy: "",
-      createdByID: "",
-      date: "",
-      type: ["fish"],
-      comments: [1, 2, 3, 4],
-    },
-  ];
-
-  //filtriranje ovdje primamo querry sa front i vracamo filtrirano sa back stranom
-  let query = req.query;
-  console.log("ovo je moj querry :", query);
-  console.log("ovo je moj querry :", typeof query.key3);
-
-  if (query.search && !(query.search === "")) {
-    posts = posts.filter((element) => {
-      return !(
-        element.title.toLowerCase().search(query.search.toLowerCase()) === -1
-      );
-    });
-  }
-
-  if (query.key2) {
-    let category = query.key2.split(",");
-    console.log("ovo je moj querry :", category);
-    function checkCategory(dbCat, searchCat) {
-      let result = false;
-      for (let i = 0; i < searchCat.length; i++) {
-        if (dbCat.includes(searchCat[i].toLowerCase())) {
-          result = true;
-        }
-      }
-      return result;
-    }
-    posts = posts.filter((element) => {
-      return checkCategory(element.type, category);
-    });
-  }
-  /*else {
-    res.status(200).json(posts);
-    return;
-  }*/
-
-  console.log("tetiranje", posts);
-
-  res.status(200).json(posts);
-});
 app.post("/posts", async (req, res) => {
   var postData = req.body;
   let db = await connect(); // pristup db objektu
@@ -393,7 +299,7 @@ app.delete("/posts/:postid/comments/:comid", async (req, res) => {
     let resultUpdate = await db.collection("posts").updateOne(
       { _id: new ObjectId(postId) },
 
-      { $pull: { comments:  new ObjectId(commentId)  } }
+      { $pull: { comments: new ObjectId(commentId) } }
     );
     //remove comment
     await db.collection("comments").deleteOne({ _id: new ObjectId(commentId) });
@@ -525,8 +431,73 @@ app.get("/encyclopedia/:id", async (req, res) => {
   }
 });
 //profile
-// dodavanje rute u aplikaciju
-app.get("/studenti", dataHandlers.studentHandler);
+app.patch("/user/password", [auth.verify], async (req, res) => {
+  let changes = req.body;
+  //PROBLEM
+  let id = req.jwt._id;
+  console.log("stali je tu u tokenu", req.jwt);
+
+  if (changes.newPassword && changes.oldPassword) {
+    let result = await auth.changeUserPassword(
+      id,
+      changes.oldPassword,
+      changes.newPassword
+    );
+    console.log("rezultat iz index", result);
+    if (result) {
+      res.status(201).send();
+    } else {
+      res.status(500).json({ error: "canot change password" });
+    }
+  } else {
+    res.status(400).json({ error: "krivi unos" });
+  }
+});
+app.patch("/user/username", [auth.verify], async (req, res) => {
+  let changes = req.body;
+  //PROBLEM
+  let id = req.jwt._id;
+  console.log("stali je tu u tokenu", req.jwt);
+
+  if (changes.newUsername && changes.oldPassword) {
+    let result = await auth.changeUserUsername(
+      id,
+      changes.newUsername,
+      changes.oldPassword
+    );
+
+    if (result) {
+      res.status(201).send();
+    } else {
+      console.log("ja sammm");
+      res.status(500).json({ error: "canot change username" });
+    }
+  } else {
+    res.status(400).json({ error: "krivi unos" });
+  }
+});
+app.patch("/user/email", [auth.verify], async (req, res) => {
+  let changes = req.body;
+  //PROBLEM
+  let id = req.jwt._id;
+  console.log("stali je tu u tokenu", req.jwt);
+
+  if (changes.newEmail && changes.oldPassword) {
+    let result = await auth.changeUserEmail(
+      id,
+      changes.newEmail,
+      changes.oldPassword
+    );
+    if (result) {
+      res.status(201).send();
+    } else {
+      res.status(500).json({ error: "canot change password" });
+    }
+  } else {
+    res.status(400).json({ error: "krivi unos" });
+  }
+});
+
 //testovi
 app.get("/testQuery", async (req, res) => {
   let query = req.query;
